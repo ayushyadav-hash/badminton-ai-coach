@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sports AI Coach — Video Analyser</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0f1a;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #0d1b2a 0%, #1a2744 100%);
+      border-bottom: 1px solid #1e3a5f;
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logo {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, #00897b, #0097a7);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+    }
+    header h1 { font-size: 20px; font-weight: 700; color: #fff; }
+    header p  { font-size: 13px; color: #64748b; margin-top: 1px; }
+
+    /* ── Layout ── */
+    .container { max-width: 1100px; margin: 0 auto; padding: 32px 20px; }
+
+    /* ── Steps ── */
+    .steps {
+      display: flex; gap: 0; margin-bottom: 36px;
+      background: #111827; border-radius: 14px; overflow: hidden;
+      border: 1px solid #1e293b;
+    }
+    .step {
+      flex: 1; padding: 16px 20px; text-align: center;
+      border-right: 1px solid #1e293b; cursor: default;
+      transition: background 0.2s;
+      position: relative;
+    }
+    .step:last-child { border-right: none; }
+    .step.active { background: #1e3a5f; }
+    .step.done   { background: #0f2d1e; }
+    .step-num {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: #1e293b; color: #64748b;
+      font-size: 12px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 6px;
+    }
+    .step.active .step-num { background: #1565c0; color: #fff; }
+    .step.done   .step-num { background: #2e7d32; color: #fff; }
+    .step-label { font-size: 12px; font-weight: 600; color: #94a3b8; }
+    .step.active .step-label { color: #60a5fa; }
+    .step.done   .step-label { color: #4ade80; }
+
+    /* ── Cards ── */
+    .card {
+      background: #111827; border: 1px solid #1e293b;
+      border-radius: 16px; padding: 28px; margin-bottom: 24px;
+    }
+    .card h2 {
+      font-size: 16px; font-weight: 700; color: #f1f5f9;
+      margin-bottom: 18px; display: flex; align-items: center; gap: 8px;
+    }
+    .card h2 span { font-size: 20px; }
+
+    /* ── Upload Zone ── */
+    .upload-zone {
+      border: 2px dashed #1e3a5f;
+      border-radius: 12px; padding: 48px 20px;
+      text-align: center; cursor: pointer;
+      transition: all 0.2s;
+      background: #0d1b2a;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: #1565c0; background: #0f2040;
+    }
+    .upload-icon { font-size: 48px; margin-bottom: 12px; }
+    .upload-zone h3 { font-size: 16px; color: #e2e8f0; margin-bottom: 6px; }
+    .upload-zone p  { font-size: 13px; color: #64748b; }
+    #video-input { display: none; }
+
+    /* ── Config Row ── */
+    .config-row {
+      display: flex; gap: 16px; margin-top: 20px; flex-wrap: wrap;
+    }
+    .config-item { flex: 1; min-width: 180px; }
+    .config-item label {
+      display: block; font-size: 12px; font-weight: 600;
+      color: #94a3b8; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .config-item input, .config-item select {
+      width: 100%; padding: 10px 14px;
+      background: #0d1b2a; border: 1px solid #1e3a5f;
+      border-radius: 8px; color: #e2e8f0; font-size: 14px;
+      outline: none; transition: border-color 0.2s;
+    }
+    .config-item input:focus, .config-item select:focus {
+      border-color: #1565c0;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 11px 24px; border-radius: 9px; border: none;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-primary { background: #1565c0; color: #fff; }
+    .btn-primary:hover { background: #1976d2; }
+    .btn-primary:disabled { background: #1e3a5f; color: #475569; cursor: not-allowed; }
+    .btn-success { background: #2e7d32; color: #fff; }
+    .btn-success:hover { background: #388e3c; }
+    .btn-success:disabled { background: #1a3320; color: #475569; cursor: not-allowed; }
+    .btn-danger { background: #b71c1c; color: #fff; }
+    .btn-danger:hover { background: #c62828; }
+    .btn-outline {
+      background: transparent; color: #94a3b8;
+      border: 1px solid #1e3a5f;
+    }
+    .btn-outline:hover { border-color: #1565c0; color: #60a5fa; }
+
+    .btn-row { display: flex; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
+
+    /* ── Frames Grid ── */
+    .frames-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 12px; margin-top: 16px;
+    }
+    .frame-card {
+      background: #0d1b2a; border: 1px solid #1e293b;
+      border-radius: 10px; overflow: hidden; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .frame-card:hover { border-color: #1565c0; transform: translateY(-2px); }
+    .frame-card.selected { border-color: #00897b; box-shadow: 0 0 0 2px #00897b40; }
+    .frame-card img { width: 100%; height: 110px; object-fit: cover; display: block; }
+    .frame-label {
+      padding: 6px 10px; font-size: 11px; color: #64748b;
+      font-weight: 600; background: #0d1b2a;
+    }
+
+    /* ── Analysis Panel ── */
+    .analysis-section { display: none; }
+    .analysis-section.visible { display: block; }
+
+    .score-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px; margin: 16px 0;
+    }
+    .score-card {
+      background: #0d1b2a; border: 1px solid #1e293b;
+      border-radius: 10px; padding: 14px;
+    }
+    .score-card .skill-name { font-size: 12px; color: #94a3b8; margin-bottom: 8px; font-weight: 600; }
+    .score-bar-bg {
+      height: 6px; background: #1e293b; border-radius: 3px; overflow: hidden; margin-bottom: 6px;
+    }
+    .score-bar-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
+    .score-val { font-size: 18px; font-weight: 700; }
+    .score-label-sm { font-size: 11px; color: #64748b; margin-top: 2px; }
+    .score-obs { font-size: 11px; color: #94a3b8; margin-top: 6px; line-height: 1.4; }
+
+    /* ── Frame Analysis Cards ── */
+    .frame-analysis-list { margin-top: 12px; }
+    .fa-card {
+      background: #0d1b2a; border: 1px solid #1e293b;
+      border-radius: 10px; margin-bottom: 12px; overflow: hidden;
+    }
+    .fa-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; background: #0f172a;
+    }
+    .fa-title { font-size: 13px; font-weight: 600; color: #e2e8f0; }
+    .priority-badge {
+      font-size: 11px; font-weight: 700; padding: 3px 10px;
+      border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .priority-CRITICAL { background: #7f1d1d; color: #fca5a5; }
+    .priority-HIGH     { background: #78350f; color: #fbbf24; }
+    .priority-MEDIUM   { background: #1e3a8a; color: #93c5fd; }
+    .priority-LOW      { background: #14532d; color: #86efac; }
+    .fa-body { padding: 10px 14px; }
+    .fa-obs { font-size: 12px; color: #94a3b8; line-height: 1.5; }
+    .fa-obs li { margin-bottom: 3px; }
+    .fa-pro {
+      margin-top: 8px; padding: 8px 12px;
+      background: #1a1400; border-left: 3px solid #f59e0b;
+      border-radius: 0 6px 6px 0; font-size: 11px; color: #fbbf24;
+    }
+
+    /* ── Summary Bar ── */
+    .summary-bar {
+      display: flex; align-items: center; gap: 20px;
+      background: linear-gradient(135deg, #0d1b2a, #1a2744);
+      border: 1px solid #1e3a5f; border-radius: 12px;
+      padding: 20px 24px; margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .summary-score {
+      font-size: 48px; font-weight: 800; line-height: 1;
+    }
+    .summary-info h3 { font-size: 15px; font-weight: 700; color: #f1f5f9; }
+    .summary-info p  { font-size: 13px; color: #94a3b8; margin-top: 3px; max-width: 500px; line-height: 1.5; }
+    .grade-badge {
+      font-size: 36px; font-weight: 800;
+      width: 64px; height: 64px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      background: #1e3a5f; color: #60a5fa;
+    }
+
+    /* ── Loading ── */
+    .loader {
+      display: none; text-align: center; padding: 40px;
+    }
+    .loader.visible { display: block; }
+    .spinner {
+      width: 40px; height: 40px; border: 3px solid #1e293b;
+      border-top-color: #1565c0; border-radius: 50%;
+      animation: spin 0.8s linear infinite; margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader p { color: #64748b; font-size: 13px; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: #1e293b; border: 1px solid #334155;
+      border-radius: 10px; padding: 12px 18px;
+      font-size: 13px; color: #e2e8f0;
+      transform: translateY(80px); opacity: 0;
+      transition: all 0.3s; z-index: 999;
+      max-width: 320px;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.success { border-left: 4px solid #2e7d32; }
+    .toast.error   { border-left: 4px solid #b71c1c; }
+
+    /* ── Video Preview ── */
+    .video-preview {
+      display: none; margin-top: 16px;
+      background: #0d1b2a; border: 1px solid #1e3a5f;
+      border-radius: 10px; padding: 12px;
+    }
+    .video-preview.visible { display: flex; align-items: center; gap: 14px; }
+    .video-preview .vicon { font-size: 32px; }
+    .video-preview .vname { font-size: 14px; font-weight: 600; color: #e2e8f0; }
+    .video-preview .vmeta { font-size: 12px; color: #64748b; margin-top: 2px; }
+
+    /* ── Section divider ── */
+    .section-divider {
+      font-size: 12px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; color: #475569; margin: 20px 0 10px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .section-divider::after {
+      content: ''; flex: 1; height: 1px; background: #1e293b;
+    }
+
+    /* ── Coach Quote ── */
+    .coach-quote {
+      background: linear-gradient(135deg, #0f2d1e, #0a1f14);
+      border: 1px solid #2e7d32; border-radius: 12px;
+      padding: 20px 24px; margin: 16px 0;
+      font-style: italic; font-size: 15px; color: #a7f3d0;
+      line-height: 1.7; position: relative;
+    }
+    .coach-quote::before {
+      content: '"'; font-size: 60px; color: #2e7d32;
+      position: absolute; top: -10px; left: 14px;
+      font-family: Georgia, serif; line-height: 1;
+    }
+    .coach-quote p { padding-left: 20px; }
+
+    @media (max-width: 600px) {
+      .steps { flex-direction: column; }
+      .step  { border-right: none; border-bottom: 1px solid #1e293b; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🏸</div>
+  <div>
+    <h1>Sports AI Coach</h1>
+    <p>Upload video → Extract frames → Claude AI Analysis → PDF Report</p>
+  </div>
+  <div style="margin-left:auto;display:flex;gap:10px;align-items:center;">
+    <div id="key-status" style="font-size:12px;padding:4px 12px;border-radius:20px;background:#1e293b;color:#64748b;">
+      🔑 No API Key
+    </div>
+    <button class="btn btn-outline" onclick="toggleSettings()" style="font-size:12px;padding:7px 14px;">
+      ⚙️ Settings
+    </button>
+  </div>
+</header>
+
+<!-- Settings Panel -->
+<div id="settings-panel" style="display:none;background:#0f172a;border-bottom:1px solid #1e293b;padding:16px 32px;">
+  <div style="max-width:700px;margin:0 auto;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+    <div style="flex:1;min-width:280px;">
+      <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">
+        Anthropic API Key
+      </label>
+      <input type="password" id="api-key-input" placeholder="sk-ant-api..."
+        style="width:100%;padding:10px 14px;background:#0d1b2a;border:1px solid #1e3a5f;
+        border-radius:8px;color:#e2e8f0;font-size:13px;outline:none;font-family:monospace;" />
+    </div>
+    <button class="btn btn-primary" onclick="saveApiKey()" style="white-space:nowrap;">💾 Save Key</button>
+    <div style="font-size:12px;color:#475569;max-width:220px;line-height:1.5;">
+      Key is saved locally in <code style="color:#94a3b8;">settings.json</code>. Never shared.
+    </div>
+  </div>
+</div>
+
+<!-- Step indicator -->
+<div class="container">
+  <div class="steps">
+    <div class="step active" id="step1">
+      <div class="step-num">1</div>
+      <div class="step-label">Upload Video</div>
+    </div>
+    <div class="step" id="step2">
+      <div class="step-num">2</div>
+      <div class="step-label">Extract Frames</div>
+    </div>
+    <div class="step" id="step3">
+      <div class="step-num">3</div>
+      <div class="step-label">AI Analysis</div>
+    </div>
+    <div class="step" id="step4">
+      <div class="step-num">4</div>
+      <div class="step-label">Download PDF</div>
+    </div>
+  </div>
+
+  <!-- ── Step 1: Upload ── -->
+  <div class="card">
+    <h2><span>🎬</span> Step 1 — Upload Your Video</h2>
+
+    <div class="upload-zone" id="upload-zone" onclick="document.getElementById('video-input').click()">
+      <div class="upload-icon">📹</div>
+      <h3>Click to select or drag & drop a video</h3>
+      <p>MP4, MOV, AVI, WebM, MKV — up to 500MB</p>
+    </div>
+    <input type="file" id="video-input" accept="video/*" />
+
+    <div class="video-preview" id="video-preview">
+      <div class="vicon">🎥</div>
+      <div>
+        <div class="vname" id="video-name"></div>
+        <div class="vmeta" id="video-meta"></div>
+      </div>
+    </div>
+
+    <div class="config-row">
+      <div class="config-item">
+        <label>Player Name</label>
+        <input type="text" id="player-name" placeholder="e.g. Arjun" value="Player" />
+      </div>
+      <div class="config-item">
+        <label>Sport</label>
+        <select id="sport">
+          <option value="badminton">🏸 Badminton</option>
+          <option value="tennis">🎾 Tennis</option>
+          <option value="cricket">🏏 Cricket</option>
+          <option value="football">⚽ Football</option>
+          <option value="basketball">🏀 Basketball</option>
+          <option value="table tennis">🏓 Table Tennis</option>
+        </select>
+      </div>
+      <div class="config-item">
+        <label>Screenshot every N seconds</label>
+        <select id="interval">
+          <option value="3">Every 3 seconds</option>
+          <option value="5" selected>Every 5 seconds</option>
+          <option value="10">Every 10 seconds</option>
+          <option value="1">Every 1 second</option>
+          <option value="2">Every 2 seconds</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="config-row">
+      <div class="config-item" style="flex: 2">
+        <label>Additional Instructions for Claude (optional)</label>
+        <input type="text" id="custom-prompt" placeholder="e.g. Focus on footwork and serve technique" />
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="extract-btn" disabled onclick="extractFrames()">
+        📸 Extract Screenshots
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Cached Analyses ── -->
+  <div class="card" id="cache-card" style="display:none">
+    <h2><span>💾</span> Saved Analyses</h2>
+    <div id="cache-list" style="display:flex;flex-wrap:wrap;gap:10px;"></div>
+  </div>
+
+  <!-- ── Step 2: Frames ── -->
+  <div class="card" id="frames-card" style="display:none">
+    <h2><span>🖼️</span> Step 2 — Extracted Frames</h2>
+    <div id="frames-meta" style="font-size:13px; color:#64748b; margin-bottom:12px;"></div>
+    <div class="frames-grid" id="frames-grid"></div>
+    <div class="btn-row">
+      <button class="btn btn-success" id="analyse-btn" onclick="analyseFrames(false)">
+        🤖 Analyse with Claude AI
+      </button>
+      <button class="btn btn-outline" id="refresh-btn" onclick="analyseFrames(true)" style="display:none;">
+        🔄 Re-analyse (fresh)
+      </button>
+    </div>
+    <div id="cache-hint" style="display:none;margin-top:10px;padding:10px 14px;
+      background:#0f2d1e;border:1px solid #2e7d32;border-radius:8px;font-size:12px;color:#4ade80;">
+      ✅ Cached analysis found for this video — will load instantly without using API credits.
+      <a href="#" onclick="analyseFrames(true);return false;" style="color:#86efac;margin-left:8px;">Force re-analyse →</a>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loader" id="loader">
+    <div class="spinner"></div>
+    <p id="loader-text">Analysing with Claude AI — this may take 30–60 seconds...</p>
+  </div>
+
+  <!-- ── Step 3: Analysis ── -->
+  <div class="analysis-section" id="analysis-section">
+    <div class="card">
+      <h2><span>📊</span> Step 3 — AI Coaching Analysis</h2>
+
+      <!-- Summary bar -->
+      <div class="summary-bar">
+        <div class="summary-score" id="summary-score">—</div>
+        <div class="grade-badge" id="grade-badge">—</div>
+        <div class="summary-info">
+          <h3 id="summary-player">—</h3>
+          <p id="summary-text">—</p>
+        </div>
+      </div>
+
+      <!-- Strengths -->
+      <div class="section-divider">Strengths</div>
+      <div id="strengths-list" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+
+      <!-- Skills -->
+      <div class="section-divider">Skills Scorecard</div>
+      <div class="score-grid" id="skills-grid"></div>
+
+      <!-- Top Fixes -->
+      <div class="section-divider">Top Priority Fixes</div>
+      <div id="top-fixes"></div>
+
+      <!-- Frame Analysis -->
+      <div class="section-divider">Frame-by-Frame Analysis</div>
+      <div class="frame-analysis-list" id="frame-analysis-list"></div>
+
+      <!-- Coach Quote -->
+      <div class="section-divider">Coach's Final Note</div>
+      <div class="coach-quote"><p id="coach-quote-text"></p></div>
+
+      <!-- Drills -->
+      <div class="section-divider">Training Drills</div>
+      <div id="drills-list"></div>
+
+      <div class="btn-row">
+        <button class="btn btn-danger" id="pdf-btn" onclick="generatePDF()">
+          📄 Download PDF Report
+        </button>
+        <button class="btn btn-outline" onclick="resetAll()">
+          🔄 Start Over
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  let selectedFile = null;
+  let analysisData = null;
+  let currentVideoName = '';
+
+  // Score colour helper
+  function scoreColor(s) {
+    if (s >= 8) return '#4ade80';
+    if (s >= 6) return '#60a5fa';
+    if (s >= 4) return '#fbbf24';
+    return '#f87171';
+  }
+  function scoreLabel(s) {
+    if (s >= 9) return 'Excellent';
+    if (s >= 7) return 'Good';
+    if (s >= 5) return 'Average';
+    if (s >= 3) return 'Needs Work';
+    return 'Critical';
+  }
+
+  // Toast helper
+  function toast(msg, type='success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = `toast ${type} show`;
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+
+  // ── Settings ──────────────────────────────────────────────────────────────
+  function toggleSettings() {
+    const p = document.getElementById('settings-panel');
+    p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  }
+
+  async function saveApiKey() {
+    const key = document.getElementById('api-key-input').value.trim();
+    if (!key) { toast('Enter an API key first', 'error'); return; }
+    await fetch('/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_key: key })
+    });
+    document.getElementById('api-key-input').value = '';
+    document.getElementById('settings-panel').style.display = 'none';
+    checkApiKey();
+    toast('API key saved!');
+  }
+
+  async function checkApiKey() {
+    const res = await fetch('/settings');
+    const d = await res.json();
+    const el = document.getElementById('key-status');
+    if (d.has_key) {
+      el.textContent = `🔑 ${d.masked}`;
+      el.style.background = '#0f2d1e';
+      el.style.color = '#4ade80';
+    } else {
+      el.textContent = '🔑 No API Key';
+      el.style.background = '#1e293b';
+      el.style.color = '#64748b';
+    }
+  }
+
+  // ── Cache ─────────────────────────────────────────────────────────────────
+  async function loadCacheList() {
+    const res = await fetch('/cache-list');
+    const d = await res.json();
+    const card = document.getElementById('cache-card');
+    const list = document.getElementById('cache-list');
+    if (!d.cache || d.cache.length === 0) { card.style.display = 'none'; return; }
+    card.style.display = 'block';
+    list.innerHTML = d.cache.map(c => `
+      <div onclick="loadCachedAnalysis('${c.key}')"
+        style="background:#0d1b2a;border:1px solid #1e293b;border-radius:10px;
+        padding:12px 16px;cursor:pointer;transition:all 0.2s;min-width:160px;"
+        onmouseover="this.style.borderColor='#1565c0'" onmouseout="this.style.borderColor='#1e293b'">
+        <div style="font-size:13px;font-weight:700;color:#e2e8f0;">${c.player}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px;">${c.sport}</div>
+        <div style="font-size:18px;font-weight:800;color:${scoreColor(c.score)};margin-top:6px;">${c.score}/10</div>
+        <div style="font-size:10px;color:#475569;margin-top:4px;">📅 ${c.date}</div>
+        <div style="font-size:10px;color:#1565c0;margin-top:4px;">Click to load →</div>
+      </div>
+    `).join('');
+  }
+
+  async function loadCachedAnalysis(key) {
+    const res = await fetch(`/load-cache/${key}`);
+    const d = await res.json();
+    if (d.analysis) {
+      analysisData = d.analysis;
+      renderAnalysis(d.analysis);
+      setStep(3);
+      toast('Loaded from cache — no API credits used!');
+      document.getElementById('analysis-section').scrollIntoView({ behavior: 'smooth' });
+    }
+  }
+
+  // Drag & drop
+  const zone = document.getElementById('upload-zone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith('video/')) handleFile(f);
+  });
+
+  document.getElementById('video-input').addEventListener('change', e => {
+    if (e.target.files[0]) handleFile(e.target.files[0]);
+  });
+
+  function handleFile(file) {
+    selectedFile = file;
+    currentVideoName = file.name;
+    document.getElementById('video-name').textContent = file.name;
+    document.getElementById('video-meta').textContent =
+      `${(file.size / 1024 / 1024).toFixed(1)} MB — ${file.type}`;
+    document.getElementById('video-preview').classList.add('visible');
+    document.getElementById('extract-btn').disabled = false;
+    setStep(1);
+  }
+
+  function setStep(n) {
+    [1,2,3,4].forEach(i => {
+      const s = document.getElementById(`step${i}`);
+      s.className = 'step' + (i === n ? ' active' : (i < n ? ' done' : ''));
+    });
+  }
+
+  // ── Extract Frames ────────────────────────────────────────────────────────
+  async function extractFrames() {
+    if (!selectedFile) return;
+
+    const btn = document.getElementById('extract-btn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Extracting...';
+
+    const formData = new FormData();
+    formData.append('video', selectedFile);
+    formData.append('interval', document.getElementById('interval').value);
+
+    try {
+      const res = await fetch('/extract', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (data.error) { toast(data.error, 'error'); return; }
+
+      const grid = document.getElementById('frames-grid');
+      grid.innerHTML = '';
+      data.frames.forEach(f => {
+        const card = document.createElement('div');
+        card.className = 'frame-card';
+        card.innerHTML = `
+          <img src="data:image/jpeg;base64,${f.b64}" alt="Frame at ${f.timestamp}s" />
+          <div class="frame-label">⏱ ${f.timestamp}s</div>
+        `;
+        grid.appendChild(card);
+      });
+
+      document.getElementById('frames-meta').textContent =
+        `${data.total} frames extracted from ${data.video_name} — ${data.duration}s @ ${data.fps} fps`;
+      document.getElementById('frames-card').style.display = 'block';
+      document.getElementById('frames-card').scrollIntoView({ behavior: 'smooth' });
+
+      // Check if cache exists for this video
+      checkCacheForVideo();
+      setStep(2);
+      toast(`${data.total} frames extracted!`);
+    } catch(e) {
+      toast('Failed to extract frames: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '📸 Extract Screenshots';
+    }
+  }
+
+  async function checkCacheForVideo() {
+    const sport = document.getElementById('sport').value;
+    const player = document.getElementById('player-name').value || 'Player';
+    // Simple cache check via analyse with force_refresh=false — if cached returns instantly
+    const hint = document.getElementById('cache-hint');
+    const refreshBtn = document.getElementById('refresh-btn');
+    // We'll just show the hint always and let the backend decide
+    hint.style.display = 'block';
+    refreshBtn.style.display = 'inline-flex';
+  }
+
+  // ── Analyse with Claude ───────────────────────────────────────────────────
+  async function analyseFrames(forceRefresh = false) {
+    const btn = document.getElementById('analyse-btn');
+    btn.disabled = true;
+
+    const loaderText = document.getElementById('loader-text');
+    loaderText.textContent = forceRefresh
+      ? 'Sending frames to Claude AI — this may take 30–60 seconds...'
+      : 'Checking cache, then calling Claude AI if needed...';
+
+    document.getElementById('loader').classList.add('visible');
+    document.getElementById('analysis-section').classList.remove('visible');
+
+    try {
+      const res = await fetch('/analyse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sport: document.getElementById('sport').value,
+          player_name: document.getElementById('player-name').value || 'Player',
+          custom_prompt: document.getElementById('custom-prompt').value,
+          video_name: currentVideoName,
+          force_refresh: forceRefresh,
+        })
+      });
+      const data = await res.json();
+      if (data.error) { toast(data.error, 'error'); return; }
+
+      analysisData = data.analysis;
+      renderAnalysis(analysisData);
+      setStep(3);
+
+      if (data.from_cache) {
+        toast('✅ Loaded from cache — no API credits used!');
+        document.getElementById('cache-hint').innerHTML =
+          '✅ <b>Loaded from cache.</b> <a href="#" onclick="analyseFrames(true);return false;" style="color:#86efac;margin-left:8px;">Force re-analyse →</a>';
+      } else {
+        toast('✅ Analysis complete!');
+        loadCacheList();
+      }
+    } catch(e) {
+      toast('Analysis failed: ' + e.message, 'error');
+    } finally {
+      document.getElementById('loader').classList.remove('visible');
+      btn.disabled = false;
+    }
+  }
+
+  // ── Render Analysis ───────────────────────────────────────────────────────
+  function renderAnalysis(a) {
+    const section = document.getElementById('analysis-section');
+    section.classList.add('visible');
+    section.scrollIntoView({ behavior: 'smooth' });
+
+    // Summary
+    const sc = a.overall_score;
+    document.getElementById('summary-score').textContent = `${sc}/10`;
+    document.getElementById('summary-score').style.color = scoreColor(sc);
+    document.getElementById('grade-badge').textContent = a.overall_grade || '—';
+    document.getElementById('summary-player').textContent = `${a.player_name} — ${a.sport}`;
+    document.getElementById('summary-text').textContent = a.executive_summary || '';
+
+    // Strengths
+    const sl = document.getElementById('strengths-list');
+    sl.innerHTML = (a.strengths || []).map(s =>
+      `<span style="background:#0f2d1e;color:#4ade80;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">✓ ${s}</span>`
+    ).join('');
+
+    // Skills
+    const sg = document.getElementById('skills-grid');
+    sg.innerHTML = (a.skills || []).map(sk => {
+      const col = scoreColor(sk.score);
+      const pct = (sk.score / 10) * 100;
+      return `
+        <div class="score-card">
+          <div class="skill-name">${sk.name}</div>
+          <div class="score-bar-bg">
+            <div class="score-bar-fill" style="width:${pct}%;background:${col}"></div>
+          </div>
+          <div class="score-val" style="color:${col}">${sk.score}<span style="font-size:13px;color:#475569">/10</span></div>
+          <div class="score-label-sm" style="color:${col}">${scoreLabel(sk.score)}</div>
+          <div class="score-obs">${sk.observation || ''}</div>
+        </div>
+      `;
+    }).join('');
+
+    // Top Fixes
+    const tf = document.getElementById('top-fixes');
+    tf.innerHTML = (a.top_fixes || []).map((fix, i) => `
+      <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:8px;">
+        <div style="width:26px;height:26px;border-radius:50%;background:#7f1d1d;color:#fca5a5;
+          font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;
+          flex-shrink:0;">${i+1}</div>
+        <div style="background:#1a0a0a;border:1px solid #7f1d1d;border-radius:8px;
+          padding:10px 14px;font-size:13px;color:#fca5a5;flex:1;">${fix}</div>
+      </div>
+    `).join('');
+
+    // Frame Analysis
+    const priClass = { CRITICAL: 'priority-CRITICAL', HIGH: 'priority-HIGH', MEDIUM: 'priority-MEDIUM', LOW: 'priority-LOW' };
+    const fal = document.getElementById('frame-analysis-list');
+    fal.innerHTML = (a.frame_analysis || []).map(f => `
+      <div class="fa-card">
+        <div class="fa-header">
+          <div class="fa-title">⏱ ${f.timestamp} — ${f.title}</div>
+          <span class="priority-badge ${priClass[f.priority] || 'priority-MEDIUM'}">${f.priority}</span>
+        </div>
+        <div class="fa-body">
+          <ul class="fa-obs">
+            ${(f.observations || []).map(o => `<li>${o}</li>`).join('')}
+          </ul>
+          ${f.pro_reference ? `<div class="fa-pro">⭐ <b>Pro Reference:</b> ${f.pro_reference}</div>` : ''}
+        </div>
+      </div>
+    `).join('');
+
+    // Coach Quote
+    document.getElementById('coach-quote-text').textContent = a.coach_quote || '';
+
+    // Drills
+    const dl = document.getElementById('drills-list');
+    dl.innerHTML = (a.drills || []).map((d, i) => `
+      <div style="background:#0d1b2a;border:1px solid #1e293b;border-radius:10px;padding:14px;margin-bottom:10px;
+        border-left:3px solid #1565c0;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div style="font-size:13px;font-weight:700;color:#60a5fa;">${i+1}. ${d.name}</div>
+          <div style="font-size:11px;color:#94a3b8;background:#1e293b;padding:2px 10px;border-radius:20px;">${d.duration}</div>
+        </div>
+        <div style="font-size:12px;color:#94a3b8;line-height:1.5;margin-bottom:6px;">${d.description}</div>
+        <div style="font-size:11px;color:#4ade80;">🎯 Targets: ${d.targets}</div>
+      </div>
+    `).join('');
+  }
+
+  // ── Generate PDF ──────────────────────────────────────────────────────────
+  async function generatePDF() {
+    const btn = document.getElementById('pdf-btn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Generating PDF...';
+    setStep(4);
+
+    try {
+      const res = await fetch('/generate-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ analysis: analysisData })
+      });
+
+      if (!res.ok) throw new Error('PDF generation failed');
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${analysisData?.player_name || 'Player'}-Analysis-Report.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      toast('PDF downloaded!');
+    } catch(e) {
+      toast('PDF failed: ' + e.message, 'error');
+      setStep(3);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '📄 Download PDF Report';
+    }
+  }
+
+  // ── Reset ─────────────────────────────────────────────────────────────────
+  function resetAll() {
+    selectedFile = null;
+    analysisData = null;
+    currentVideoName = '';
+    document.getElementById('video-input').value = '';
+    document.getElementById('video-preview').classList.remove('visible');
+    document.getElementById('extract-btn').disabled = true;
+    document.getElementById('frames-card').style.display = 'none';
+    document.getElementById('analysis-section').classList.remove('visible');
+    document.getElementById('frames-grid').innerHTML = '';
+    document.getElementById('cache-hint').style.display = 'none';
+    document.getElementById('refresh-btn').style.display = 'none';
+    setStep(1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // Init
+  checkApiKey();
+  loadCacheList();
+</script>
+</body>
+</html>
