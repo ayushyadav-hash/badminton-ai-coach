@@ -29,11 +29,15 @@ from reportlab.graphics import renderPDF
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB
 
-UPLOAD_DIR  = os.path.join(os.path.dirname(__file__), 'uploads')
-OUTPUT_DIR  = os.path.join(os.path.dirname(__file__), 'outputs')
-FRAMES_DIR  = os.path.join(os.path.dirname(__file__), 'frames')
-CACHE_DIR   = os.path.join(os.path.dirname(__file__), 'cache')
-SETTINGS_FILE = os.path.join(os.path.dirname(__file__), 'settings.json')
+# Use /tmp on Vercel (ephemeral), local dirs otherwise
+IS_VERCEL = os.environ.get('VERCEL') == '1'
+BASE_DIR  = '/tmp' if IS_VERCEL else os.path.dirname(__file__)
+
+UPLOAD_DIR    = os.path.join(BASE_DIR, 'uploads')
+OUTPUT_DIR    = os.path.join(BASE_DIR, 'outputs')
+FRAMES_DIR    = os.path.join(BASE_DIR, 'frames')
+CACHE_DIR     = os.path.join(BASE_DIR, 'cache')
+SETTINGS_FILE = os.path.join(BASE_DIR, 'settings.json')
 
 for d in [UPLOAD_DIR, OUTPUT_DIR, FRAMES_DIR, CACHE_DIR]:
     os.makedirs(d, exist_ok=True)
